@@ -15,14 +15,21 @@ makeBrowser/
     ├── saba_core/           # ブラウザコア機能
     │   └── src/
     │       ├── lib.rs
-    │       └── url.rs       # URLパーサー
-    ├── net/                 # ネットワーク関連
+    │       ├── url.rs       # URLパーサー
+    │       ├── http.rs      # HTTPレスポンスパーサー
+    │       └── error.rs     # エラー型定義
+    ├── net/wasabi/          # WasabiOS用ネットワーク実装
+    │   └── src/
+    │       └── http.rs      # HTTPクライアント
     └── build/wasabi/        # WasabiOS（実行環境）
 ```
 
 ## 実装状況
 
-- [x] URLパーサー（HTTPスキーム対応）
+- [x] 第2章: URLパーサー（HTTPスキーム対応）
+- [x] 第3章: HTTP通信
+  - [x] HTTPレスポンスパーサー
+  - [x] HTTPクライアント
 
 ## 必要な環境
 
