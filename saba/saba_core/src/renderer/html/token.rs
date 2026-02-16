@@ -1,6 +1,6 @@
 use alloc::string::String;
 use alloc::vec::Vec;
-use crate::renderer::html::attribute::Attibute;
+use crate::renderer::html::attribute::Attribute;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HtmlTokenizer {
@@ -13,7 +13,7 @@ pub struct HtmlTokenizer {
  }
 
 impl HtmlTokenizer {
-    pub fn new(input: Vec<char>) -> Self {
+    pub fn new(html: String) -> Self {
         Self {
             state: State::Data,
             pos: 0,
@@ -58,11 +58,11 @@ impl HtmlTokenizer {
         if let Some(t) = self.latest_token.as_mut() {
             match t {
                 HtmlToken::StartTag {
-                    ref mut tag,
+                    tag,
                     self_closing: _,
                     attributes: _,
                 }
-                | HtmlToken::EndTag { ref mut tag } => tag.push(c);
+                | HtmlToken::EndTag { tag } => tag.push(c),
                 _ => panic!("`lastest_token` shold be either StartTag or EndTag"),
             }
         }
@@ -74,6 +74,7 @@ impl HtmlTokenizer {
         let t = self.latest_token.as_ref().cloned();
         self.latest_token = None;
         assert!(self.latest_token.is_none());
+        t
     }
 
     fn start_new_attribute(&mut self) {
@@ -86,7 +87,7 @@ impl HtmlTokenizer {
                     self_closing: _,
                     attributes,
                 } => {
-                    attributes.push(Attibute::new());
+                    attributes.push(Attribute::new());
                 }
                 _ => panic!("`latest_token` should be either StartTag"),
             }
@@ -101,17 +102,32 @@ impl HtmlTokenizer {
                 HtmlToken::StartTag {
                     tag: _,
                     self_closing: _,
-                    ref mut attributes,
+                    attributes,
                 } => {
                     let len = attributes.len();
                     assert!(len > 0);
 
-                    attributes[len - 1].append(c, is_name);
+                    attributes[len - 1].add_char(c, is_name);
                 }
                 _ => panic!("`latest_token` should be either StartTag"),
             }
         }
     }
+
+    fn set_self_closing_flag(&mut self) {
+        assert!(self.latest_token.is_some());
+
+        if let Some(t) = self.latest_token.as_mut() {
+            match t {
+                HtmlToken::StartTag {
+                    tag: _,
+                    self_closing,
+                    attributes: _,
+                } => *self_closing = true,
+                _ => panic!("`latest_token` should be StartTag"),
+            }
+        }
+    } 
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,14 +135,12 @@ pub enum HtmlToken {
     StartTag {
         tag: String,
         self_closing: bool,
-        attributes: Vec<Attibute>,
+        attributes: Vec<Attribute>,
     },
     EndTag {
         tag: String,
     },
-    Character {
-        data: char,
-    },
+    Char(char),
     EOF,
 }
 
@@ -152,13 +166,6 @@ pub enum State {
     TemporaryBuffer,
 }
 
-match self.state {
-    State::Data =>{}
-    State::TagOpen =>{}
-    State::EndTagOpen =>{}
-    State::TagName =>{}
-}
-
 impl Iterator for HtmlTokenizer {
     type Item = HtmlToken;
 
@@ -173,7 +180,7 @@ impl Iterator for HtmlTokenizer {
                 false => self.consume_next_input(),
             };
 
-            match self.srate{
+            match self.state{
                 State::Data =>{
                     if c == '<' {
                         self.state = State::TagOpen;
@@ -184,7 +191,7 @@ impl Iterator for HtmlTokenizer {
                         return Some(HtmlToken::EOF);
                     }
 
-                    return Some(HthmlToken::Character(c));
+                    return Some(HtmlToken::Char(c));
                 }
 
                 State::TagOpen =>{
@@ -274,7 +281,7 @@ impl Iterator for HtmlTokenizer {
                     }
 
                     if c.is_ascii_uppercase() {
-                        self.append_attribute(c.to_ascii_lowercase()),/*is_name*/ true);
+                        self.append_attribute(c.to_ascii_lowercase(), /*is_name*/ true);
                         continue;
                     }
 
@@ -343,8 +350,275 @@ impl Iterator for HtmlTokenizer {
                     self.append_attribute(c, /*is_name*/ false);
                 }
 
+                State::AttributeValueSingleQuoted =>{
+                    if c == '\'' {
+                        self.state = State::AfterAttributeValueQuoted;
+                        continue;
+                    }
+
+                    if self.is_eof() {
+                        return Some(HtmlToken::EOF);
+                    }
+
+                    self.append_attribute(c, /*is_name*/ false);
+                }
+
+                State::AttributeValueUnquoted =>{
+                    if c == ' ' {
+                        self.state = State::BeforeAttributeName;
+                        continue;
+                    }
+
+                    if c == '/' {
+                        self.state = State::SelfClosingStartTag;
+                        continue;
+                    }
+
+                    if c == '>' {
+                        self.state = State::Data;
+                        return self.take_latest_token();
+                    }
+
+                    if self.is_eof() {
+                        return Some(HtmlToken::EOF);
+                    }
+
+                    self.append_attribute(c, /*is_name*/ false);
+                }
+
+                State::AfterAttributeValueQuoted =>{
+                    if c == ' ' {
+                        self.state = State::BeforeAttributeName;
+                        continue;
+                    }
+
+                    if c == '/' {
+                        self.state = State::SelfClosingStartTag;
+                        continue;
+                    }
+
+                    if c == '>' {
+                        self.state = State::Data;
+                        return self.take_latest_token();
+                    }
+
+                    if self.is_eof() {
+                        return Some(HtmlToken::EOF);
+                    }
+
+                    self.reconsume = true;
+                    self.state = State::BeforeAttributeName;
+                }
+
+                State::SelfClosingStartTag =>{
+                    if c == '>' {
+                        self.set_self_closing_flag();
+                        self.state = State::Data;
+                        return self.take_latest_token();
+                    }
+
+                    if self.is_eof() {
+                        // invaild parse error
+                        return Some(HtmlToken::EOF);
+                    }
+                }
+
+                State::ScriptData =>{
+                    if c == '<' {
+                        self.state = State::ScriptDataLessThanSign;
+                        continue;
+                    }
+
+                    if self.is_eof() {
+                        return Some(HtmlToken::EOF);
+                    }
+
+                    return Some(HtmlToken::Char(c));
+                }
+
+                State::ScriptDataLessThanSign =>{
+                    if c == '/' {
+                        // 一時的なバッファを空文字でリセットする
+                        self.buf = String::new();
+                        self.state = State::ScriptDataEndTagOpen;
+                        continue;
+                    }
+
+                    self.reconsume = true;
+                    self.state = State::ScriptData;
+                    return Some(HtmlToken::Char('<'));
+                }
+
+                State::ScriptDataEndTagOpen =>{
+                    if c.is_ascii_alphabetic() {
+                        self.reconsume = true;
+                        self.state = State::ScriptDataEndTagName;
+                        self.create_tag(false);
+                        continue;
+                    }
+
+                    self.reconsume = true;
+                    self.state = State::ScriptData;
+                    return Some(HtmlToken::Char('<'));
+                }
+
+                State::ScriptDataEndTagName =>{
+                    if c == '>' {
+                        self.state = State::Data;
+                        return self.take_latest_token();
+                    }
+
+                    if c.is_ascii_alphabetic() {
+                        self.buf.push(c);
+                        self.append_tag_name(c.to_ascii_lowercase());
+                        continue;
+                    }
+
+                    self.state = State::TemporaryBuffer;
+                    self.buf = String::from("</") + &self.buf;
+                    self.buf.push(c);
+                    continue;
+                }
+
+                State::TemporaryBuffer =>{
+                    self.reconsume = true;
+
+                    if self.buf.chars().count() == 0 {
+                        self.state = State::ScriptData;
+                        continue;
+                    }
+
+                    // 最初の1文字を削除する
+                    let c = self
+                        .buf
+                        .chars()
+                        .nth(0)
+                        .expect("self.buf should have at least 1 char");
+                    self.buf.remove(0);
+                    return Some(HtmlToken::Char(c));
+                }                    
             }
         }
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::ToString;
+    use alloc::vec;
+
+    #[test]
+    fn test_empty() {
+        let input = "".to_string();
+        let mut tokenizer = HtmlTokenizer::new(input);
+        assert!(tokenizer.next().is_none());
+    }
+
+    #[test]
+    fn test_start_and_end_tag() {
+        let html = "<body></body>".to_string();
+        let mut tokenizer = HtmlTokenizer::new(html);
+
+        let expected = [ 
+            HtmlToken::StartTag {
+                tag: "body".to_string(),
+                self_closing: false,
+                attributes: Vec::new(),
+            },
+            HtmlToken::EndTag {
+                tag: "body".to_string(),
+            },
+        ];
+        for e in expected {
+            assert_eq!(Some(e), tokenizer.next());
+        }
+    }
+
+    #[test]
+    fn test_attributes() {
+        let html = "<p class=\"A\" id='B' foo=bar></p>".to_string();
+        let mut tokenizer = HtmlTokenizer::new(html);
+        let mut attr1 = Attribute::new();
+        attr1.add_char('c', true);
+        attr1.add_char('l', true);
+        attr1.add_char('a', true);
+        attr1.add_char('s', true);
+        attr1.add_char('s', true);
+        attr1.add_char('A', false);
+
+        let mut attr2 = Attribute::new();
+        attr2.add_char('i', true);
+        attr2.add_char('d', true);
+        attr2.add_char('B', false);
+
+        let mut attr3 = Attribute::new();
+        attr3.add_char('f', true);
+        attr3.add_char('o', true);
+        attr3.add_char('o', true);
+        attr3.add_char('b', false);
+        attr3.add_char('a', false);
+        attr3.add_char('r', false);
+
+        let expected = [
+            HtmlToken::StartTag {
+                tag: "p".to_string(),
+                self_closing: false,
+                attributes: vec![attr1, attr2, attr3],
+            },
+            HtmlToken::EndTag {
+                tag: "p".to_string(),
+            },
+        ];
+
+        for e in expected {
+            assert_eq!(Some(e), tokenizer.next());
+        }
+    }
+
+    #[test]
+    fn test_self_closing_tag() {
+        let html = "<img />".to_string();
+        let mut tokenizer = HtmlTokenizer::new(html);
+        let expected = [HtmlToken::StartTag {
+            tag: "img".to_string(),
+            self_closing: true,
+            attributes: Vec::new(),
+        }];
+
+        for e in expected {
+            assert_eq!(Some(e), tokenizer.next());
+        }
+    }
+
+    #[test]
+    fn test_script_tag() {
+        let html = "<script>js code;</script>".to_string();
+        let mut tokenizer = HtmlTokenizer::new(html);
+        let expected = [
+            HtmlToken::StartTag {
+                tag: "script".to_string(),
+                self_closing: false,
+                attributes: Vec::new(),
+            },
+            HtmlToken::Char('j'),
+            HtmlToken::Char('s'),
+            HtmlToken::Char(' '),
+            HtmlToken::Char('c'),
+            HtmlToken::Char('o'),
+            HtmlToken::Char('d'),
+            HtmlToken::Char('e'),
+            HtmlToken::Char(';'),
+            HtmlToken::EndTag {
+                tag: "script".to_string(),
+            },
+        ];
+
+        for e in expected {
+            assert_eq!(Some(e), tokenizer.next());
+        }
+    }
+
 }
 

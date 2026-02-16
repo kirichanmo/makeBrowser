@@ -17,7 +17,10 @@ makeBrowser/
     │       ├── lib.rs
     │       ├── url.rs       # URLパーサー
     │       ├── http.rs      # HTTPレスポンスパーサー
-    │       └── error.rs     # エラー型定義
+    │       ├── error.rs     # エラー型定義
+    │       └── renderer/    # レンダリングエンジン
+    │           ├── dom/     # DOMツリー（Node, Window, Element）
+    │           └── html/    # HTMLトークナイザー・パーサー
     ├── net/wasabi/          # WasabiOS用ネットワーク実装
     │   └── src/
     │       └── http.rs      # HTTPクライアント
@@ -30,6 +33,10 @@ makeBrowser/
 - [x] 第3章: HTTP通信
   - [x] HTTPレスポンスパーサー
   - [x] HTTPクライアント
+- [ ] 第4章: HTMLパーサーとDOM構築（進行中）
+  - [x] HTMLトークナイザー（状態機械ベース）
+  - [x] DOMノードツリー（Node, Window, Element, ElementKind）
+  - [ ] HTMLパーサー（トークン→DOM変換）
 
 ## 必要な環境
 
