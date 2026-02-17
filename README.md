@@ -37,6 +37,9 @@ makeBrowser/
   - [x] HTMLトークナイザー（状態機械ベース）
   - [x] DOMノードツリー（Node, Window, Element, ElementKind）
   - [ ] HTMLパーサー（トークン→DOM変換）
+    - [x] InsertionMode状態機械（Initial〜AfterAfterBody）
+    - [x] construct_tree / insert_element
+    - [ ] insert_char / pop_until 等の補助メソッド
 
 ## 必要な環境
 

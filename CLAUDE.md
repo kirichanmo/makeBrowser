@@ -43,7 +43,7 @@ saba/                       # Cargoワークスペースルート
 │       │   └── mod.rs
 │       └── html/           # HTMLパーサー
 │           ├── token.rs    # HTMLトークナイザー（状態機械ベース）
-│           ├── parser.rs   # HTMLパーサー（トークン→DOM構築）※実装中
+│           ├── parser.rs   # HTMLパーサー（トークン→DOM構築、InsertionMode状態機械）※実装中
 │           ├── attribute.rs # HTML属性
 │           └── mod.rs
 └── net/wasabi/             # WasabiOS固有ネットワーク実装
@@ -52,7 +52,7 @@ saba/                       # Cargoワークスペースルート
 
 ### レイヤー構造
 
-1. **saba_core**: `no_std`対応の純粋Rustライブラリ。外部依存なし。URL解析、HTTPレスポンス解析、HTMLトークナイズ、DOM構築を担当
+1. **saba_core**: `no_std`対応の純粋Rustライブラリ。外部依存なし。URL解析、HTTPレスポンス解析、HTMLトークナイズ、DOM構築（Rc/RefCellベースのツリー構造）を担当
 2. **net/wasabi**: WasabiOS専用のネットワーク層。`noli`クレートでTCP通信
 3. **saba**: メインバイナリ。`#![no_std]`/`#![no_main]`で`wasabi`フィーチャー経由で依存を選択
 

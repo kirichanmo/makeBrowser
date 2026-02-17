@@ -81,6 +81,24 @@ impl Node {
     pub fn next_sibling(&self) -> Option<Rc<RefCell<Node>>> {
         self.next_sibling.as_ref().cloned()
     }
+
+    pub fn kind(&self) -> NodeKind {
+        self.kind.clone()
+    }
+
+    pub fn get_element(&self) -> Option<Element> {
+        match self.kind {
+            NodeKind::Document | NodeKind::Text(_) => None,
+            NodeKind::Element(ref e) => Some(e.clone()),
+        }
+    }
+
+    pub fn element_kind(&self) -> Option<ElementKind> {
+        match self.kind {
+            NodeKind::Document | NodeKind::Text(_) => None,
+            NodeKind::Element(ref e) => Some(e.kind()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -124,8 +142,8 @@ impl Element {
         }
     }
 
-    pub fn kind(&self) -> &ElementKind {
-        &self.kind
+    pub fn kind(&self) -> ElementKind {
+        self.kind
     }
 }
 
@@ -148,7 +166,7 @@ impl FromStr for ElementKind {
             "style" => Ok(ElementKind::Style),
             "script" => Ok(ElementKind::Script),
             "body" => Ok(ElementKind::Body),
-            _ => Err(format!("Unknown element kind: {}", s)),
+            _ => Err(format!("unimplemented element name {:?}", s)),
         }
     }
 }
