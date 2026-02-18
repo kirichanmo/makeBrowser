@@ -63,5 +63,10 @@ cd saba
 
 ## 参考
 
+- [d0iasm/saba](https://github.com/d0iasm/saba) - 書籍の公式リポジトリ
 - [WasabiOS](https://github.com/hikalium/wasabi)
 - 書籍「作って学ぶブラウザのしくみ」
+
+## ライセンス
+
+[MIT](LICENSE)
