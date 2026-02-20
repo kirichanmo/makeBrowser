@@ -185,6 +185,30 @@ impl HtmlParser {
                 }
                 InsertionMode::InBody => {
                     match token {
+                        Some(HtmlToken::StartTag {
+                            ref tag,
+                            self_closing: _,
+                            ref attributes,
+                        }) => match tag.as_str() {
+                            "p" => {
+                                self.insert_element(tag, attributes.to_vec());
+                                token = self.t.next();
+                                continue;
+                            }
+                            "H1" | "H2" => {
+                                self.insert_element(tag, attributes.to_vec());
+                                token = self.t.next();
+                                continue;
+                            }
+                            "a" => {
+                                self.insert_element(tag, attributes.to_vec());
+                                token = self.t.next();
+                                continue;
+                            }
+                            _ => {
+                                token = self.t.next();
+                            }
+                        },
                         Some(HtmlToken::EndTag { ref tag }) => {
                             match tag.as_str() {
                                 "body" => {
@@ -206,15 +230,40 @@ impl HtmlParser {
                                     }
                                     continue;
                                 }
+                                "p" => {
+                                    let element_kind = ElementKind::from_str(tag)
+                                        .expect("failed to convert string to ElementKind");
+                                    token = self.t.next();
+                                    self.pop_until(element_kind);
+                                    continue;
+                                }
+                                "h1" | "h2" => {
+                                    let element_kind = ElementKind::from_str(tag)
+                                        .expect("failed to convert string to ElementKind");
+                                    token = self.t.next();
+                                    self.pop_until(element_kind);
+                                    continue;
+                                }
+                                "a" => {
+                                    let element_kind = ElementKind::from_str(tag)
+                                        .expect("failed to convert string to ElementKind");
+                                    token = self.t.next();
+                                    self.pop_until(element_kind);
+                                    continue;
+                                }
                                 _ => {
                                     token = self.t.next();
                                 }
                             }
                         }
+                        Some(HtmlToken::Char(c)) => {
+                            self.insert_char(c);
+                            token = self.t.next();
+                            continue;
+                        }
                         Some(HtmlToken::EoF) | None => {
                             return self.window.clone();
                         }
-                        _ => {}
                     }
                 }
                 InsertionMode::Text => {
